@@ -1,10 +1,11 @@
 import 'package:zxcvbn/src/feedback.dart';
+import 'package:zxcvbn/src/match.dart';
 
 class Result {
   String? password;
   late int guesses;
   late double guesses_log10;
-  dynamic sequence;
+  late List<PasswordMatch> sequence;
   late Feedback feedback;
   double? score;
 

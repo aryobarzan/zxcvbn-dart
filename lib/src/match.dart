@@ -1,20 +1,25 @@
 class PasswordMatch {
-  String? pattern;
-  int? i;
-  int? j;
-  String? token;
+  // Core required fields - always set for every match
+  final String pattern;
+  final int i;
+  final int j;
+  final String token;
+
+  // Calculated fields - set during scoring
+  double? guesses;
+  double? guesses_log10;
+
+  // Optional fields - vary by pattern type
   String? matched_word;
-  dynamic rank;
+  int? rank;
   String? dictionary_name;
   bool? reversed;
   bool? l33t;
-  double? guesses;
-  double? guesses_log10;
   int? base_guesses;
   int? repeat_count;
   bool? ascending;
   String? regex_name;
-  dynamic regex_match;
+  RegExpMatch? regex_match;
   int? year;
   int? month;
   int? day;
@@ -26,12 +31,46 @@ class PasswordMatch {
   int? l33t_variations;
   Map? sub;
   String? base_token;
-  dynamic base_matches;
+  List<PasswordMatch>? base_matches;
   bool? has_full_year;
   String? sub_display;
-
   String? sequence_name;
   int? sequence_space;
+
+  PasswordMatch({
+    required this.pattern,
+    required this.i,
+    required this.j,
+    required this.token,
+    this.matched_word,
+    this.rank,
+    this.dictionary_name,
+    this.reversed,
+    this.l33t,
+    this.guesses,
+    this.guesses_log10,
+    this.base_guesses,
+    this.repeat_count,
+    this.ascending,
+    this.regex_name,
+    this.regex_match,
+    this.year,
+    this.month,
+    this.day,
+    this.separator,
+    this.graph,
+    this.turns,
+    this.shifted_count,
+    this.uppercase_variations,
+    this.l33t_variations,
+    this.sub,
+    this.base_token,
+    this.base_matches,
+    this.has_full_year,
+    this.sub_display,
+    this.sequence_name,
+    this.sequence_space,
+  });
 
   /// The javascript version uses a mix of array index access and dot notation
   /// Dart doesn't support that on classes, so we we are overriding operator[]

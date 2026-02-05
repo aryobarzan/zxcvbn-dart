@@ -23,8 +23,7 @@ double calc_average_degree(Map<String, List<String?>> graph) {
         }
       }
       return results;
-    }()
-        .length;
+    }().length;
   }
   average /= () {
     final results = [];
@@ -33,8 +32,7 @@ double calc_average_degree(Map<String, List<String?>> graph) {
       results.add(k);
     }
     return results;
-  }()
-      .length;
+  }().length;
   return average as double;
 }
 
@@ -110,19 +108,21 @@ class scoring {
   // ------------------------------------------------------------------------------
 
   static Result most_guessable_match_sequence(
-      String password, List<PasswordMatch> matches,
-      {exclude_additive = false}) {
+    String password,
+    List<PasswordMatch> matches, {
+    exclude_additive = false,
+  }) {
     final n = password.length;
 
     // partition matches into sublists according to ending index j
     final matches_by_j = List<List<PasswordMatch>>.generate(n, (index) => []);
 
     for (final m in matches) {
-      matches_by_j[m.j!].add(m);
+      matches_by_j[m.j].add(m);
     }
     // small detail: for deterministic output, sort each sublist by i.
     for (final lst in matches_by_j) {
-      lst.sort((m1, m2) => m1.i! - m2.i!);
+      lst.sort((m1, m2) => m1.i - m2.i);
     }
 
     final optimal = {
@@ -141,13 +141,13 @@ class scoring {
     // helper: considers whether a length-l sequence ending at match m is better (fewer guesses)
     // than previously encountered sequences, updating state if so.
     final update = (PasswordMatch m, double? l) {
-      final k = m.j!;
+      final k = m.j;
       double pi = estimate_guesses(m, password)!.toDouble();
       if (l! > 1) {
         // we're considering a length-l sequence ending with match m:
         // obtain the product term in the minimization function by multiplying m's guesses
         // by the product of the length-(l-1) sequence ending just before m, at m.i - 1.
-        pi *= optimal['pi']![m.i! - 1][l - 1];
+        pi *= optimal['pi']![m.i - 1][l - 1];
       }
       // calculate the minimization func
       double g = factorial(l) * pi;
@@ -175,11 +175,12 @@ class scoring {
     };
 
     // helper: make bruteforce match objects spanning i to j, inclusive.
-    final make_bruteforce_match = (int i, int j) => PasswordMatch()
-      ..pattern = 'bruteforce'
-      ..token = password.substring(i, j + 1)
-      ..i = i
-      ..j = j;
+    final make_bruteforce_match = (int i, int j) => PasswordMatch(
+      pattern: 'bruteforce',
+      token: password.substring(i, j + 1),
+      i: i,
+      j: j,
+    );
 
     // helper: evaluate bruteforce matches ending at k.
     final bruteforce_update = (k) {
@@ -211,28 +212,30 @@ class scoring {
       final List<PasswordMatch> optimal_match_sequence = [];
       var k = n - 1;
       // find the final best sequence length and score
-      dynamic l = null;
+      double? l;
       double g = double.infinity;
-      optimal['g']![k].forEach((candidate_l, candidate_g) {
-        if (candidate_g < g) {
-          l = candidate_l;
-          g = candidate_g;
-        }
-      });
+      if (k >= 0) {
+        optimal['g']![k].forEach((candidate_l, candidate_g) {
+          if (candidate_g < g) {
+            l = candidate_l;
+            g = candidate_g;
+          }
+        });
+      }
 
       while (k >= 0) {
-        var m = optimal['m']![k][l];
+        var m = optimal['m']![k][l!];
         optimal_match_sequence.insert(0, m);
         k = m.i - 1;
-        l--;
+        l = l! - 1;
       }
       return optimal_match_sequence;
     };
 
     for (int k = 0; k < n; k++) {
       for (final m in matches_by_j[k]) {
-        if (m.i! > 0) {
-          for (var l in optimal['m']![m.i! - 1].keys) {
+        if (m.i > 0) {
+          for (var l in optimal['m']![m.i - 1].keys) {
             update(m, l + 1);
           }
         } else {
@@ -269,8 +272,8 @@ class scoring {
       return match.guesses;
     }
     double min_guesses = 1;
-    if (match.token!.length < password.length) {
-      if (match.token!.length == 1) {
+    if (match.token.length < password.length) {
+      if (match.token.length == 1) {
         min_guesses = MIN_SUBMATCH_GUESSES_SINGLE_CHAR;
       } else {
         min_guesses = MIN_SUBMATCH_GUESSES_MULTI_CHAR;
@@ -285,18 +288,19 @@ class scoring {
       'regex': regex_guesses,
       'date': date_guesses,
     };
-    final double guesses = estimation_functions[match.pattern!]!.call(match)!;
+    final double guesses = estimation_functions[match.pattern]!.call(match)!;
     match.guesses = Math.max<double>(guesses, min_guesses);
     match.guesses_log10 = log10(match.guesses!);
     return match.guesses;
   }
 
   static double bruteforce_guesses(PasswordMatch match) {
-    double guesses = Math.pow(BRUTEFORCE_CARDINALITY, match.token!.length) as double;
+    double guesses =
+        Math.pow(BRUTEFORCE_CARDINALITY, match.token.length) as double;
     // small detail: make bruteforce matches at minimum one guess bigger than smallest allowed
     // submatch guesses, such that non-bruteforce submatches over the same [i..j] take precedence.
     double min_guesses;
-    if (match.token!.length == 1) {
+    if (match.token.length == 1) {
       min_guesses = MIN_SUBMATCH_GUESSES_SINGLE_CHAR + 1;
     } else {
       min_guesses = MIN_SUBMATCH_GUESSES_MULTI_CHAR + 1;
@@ -309,7 +313,7 @@ class scoring {
   }
 
   static double sequence_guesses(PasswordMatch match) {
-    final first_chr = match.token![0];
+    final first_chr = match.token[0];
     double base_guesses;
     // lower guesses for obvious starting points
     if (['a', 'A', 'z', 'Z', '0', '1', '9'].contains(first_chr)) {
@@ -329,7 +333,7 @@ class scoring {
       // 2x guesses
       base_guesses *= 2;
     }
-    return base_guesses * match.token!.length;
+    return base_guesses * match.token.length;
   }
 
   static final MIN_YEAR_SPACE = 20;
@@ -345,15 +349,17 @@ class scoring {
       'symbols': 33,
     };
     if (char_class_bases[match.regex_name!] != null) {
-      return Math.pow(char_class_bases[match.regex_name!]!, match.token!.length)
-          .toDouble();
+      return Math.pow(
+        char_class_bases[match.regex_name!]!,
+        match.token.length,
+      ).toDouble();
     } else {
       switch (match.regex_name) {
         case 'recent_year':
           // conservative estimate of year space: num years from REFERENCE_YEAR.
           // if year is close to REFERENCE_YEAR, estimate a year space of MIN_YEAR_SPACE.
-          int year_space =
-              (int.parse(match.regex_match[0]) - REFERENCE_YEAR).abs();
+          int year_space = (int.parse(match.regex_match![0]!) - REFERENCE_YEAR)
+              .abs();
           year_space = Math.max(year_space, MIN_YEAR_SPACE);
           return 1.0 * year_space;
       }
@@ -363,8 +369,10 @@ class scoring {
 
   static double date_guesses(PasswordMatch match) {
     // base guesses: (year distance from REFERENCE_YEAR) * num_days * num_years
-    final year_space =
-        Math.max<int>((match.year! - REFERENCE_YEAR).abs(), MIN_YEAR_SPACE);
+    final year_space = Math.max<int>(
+      (match.year! - REFERENCE_YEAR).abs(),
+      MIN_YEAR_SPACE,
+    );
     double guesses = year_space * 365.0;
     // add factor of 4 for separator selection (one of ~4 choices)
     if (match.separator != null && match.separator!.isNotEmpty) {
@@ -373,11 +381,13 @@ class scoring {
     return guesses;
   }
 
-  static final KEYBOARD_AVERAGE_DEGREE =
-      calc_average_degree(adjacency_graphs['qwerty']!);
+  static final KEYBOARD_AVERAGE_DEGREE = calc_average_degree(
+    adjacency_graphs['qwerty']!,
+  );
   // slightly different for keypad/mac keypad, but close enough
-  static final KEYPAD_AVERAGE_DEGREE =
-      calc_average_degree(adjacency_graphs['keypad']!);
+  static final KEYPAD_AVERAGE_DEGREE = calc_average_degree(
+    adjacency_graphs['keypad']!,
+  );
 
   static final KEYBOARD_STARTING_POSITIONS =
       adjacency_graphs['qwerty']!.keys.length;
@@ -395,7 +405,7 @@ class scoring {
       d = KEYPAD_AVERAGE_DEGREE;
     }
     double guesses = 0;
-    int L = match.token!.length;
+    int L = match.token.length;
     int? t = match.turns;
     int possible_turns;
     // estimate the number of possible patterns w/ length L or less with t turns or less.
@@ -409,7 +419,7 @@ class scoring {
     // math is similar to extra guesses of l33t substitutions in dictionary matches.
     if (match.shifted_count != null && match.shifted_count! > 0) {
       var S = match.shifted_count;
-      var U = match.token!.length - match.shifted_count!; // # unshifted count
+      var U = match.token.length - match.shifted_count!; // # unshifted count
       if (S == 0 || U == 0) {
         guesses *= 2;
       } else {
@@ -442,7 +452,7 @@ class scoring {
   static final RegExp ALL_LOWER = RegExp(r'^[^A-Z]+$');
 
   static num uppercase_variations(PasswordMatch match) {
-    final word = match.token!;
+    final word = match.token;
     if (ALL_LOWER.hasMatch(word) || word.toLowerCase() == word) {
       return 1;
     }
@@ -479,11 +489,13 @@ class scoring {
     int variations = 1;
     match.sub!.forEach((subbed, unsubbed) {
       // lower-case match.token before calculating: capitalization shouldn't affect l33t calc.
-      final chrs = match.token!.toLowerCase().split('');
-      final S =
-          chrs.where((chr) => chr == subbed).length; // num of subbed chars
-      final U =
-          chrs.where((chr) => chr == unsubbed).length; // num of unsubbed chars
+      final chrs = match.token.toLowerCase().split('');
+      final S = chrs
+          .where((chr) => chr == subbed)
+          .length; // num of subbed chars
+      final U = chrs
+          .where((chr) => chr == unsubbed)
+          .length; // num of unsubbed chars
       if (S == 0 || U == 0) {
         // for this sub, password is either fully subbed (444) or fully unsubbed (aaa)
         // treat that as doubling the space (attacker needs to try fully subbed chars in addition to

@@ -12,7 +12,7 @@ class feedback {
     ..warning = ''
     ..suggestions = [
       "Use a few words, avoid common phrases",
-      "No need for symbols, digits, or uppercase letters"
+      "No need for symbols, digits, or uppercase letters",
     ];
 
   static Feedback get_feedback(score, List<PasswordMatch> sequence) {
@@ -28,35 +28,32 @@ class feedback {
 
     //# tie feedback to the longest match for longer sequences
     PasswordMatch longest_match = sequence[0];
-    Feedback feedback = Feedback();
+    Feedback? feedback = Feedback();
     for (final match in sequence.sublist(1)) {
-      if (match.token!.length > longest_match.token!.length) {
+      if (match.token.length > longest_match.token.length) {
         longest_match = match;
       }
     }
     feedback = get_match_feedback(longest_match, sequence.length == 1);
     final extra_feedback =
         'Add another word or two. Uncommon words are better.';
-    if (feedback != null) {
-      feedback.suggestions!.insert(0, extra_feedback);
-      if (feedback.warning == null) {
-        feedback.warning = '';
-      }
-    } else
-      feedback = Feedback(
-        warning: '',
-        suggestions: [extra_feedback],
-      );
+
+    feedback!.suggestions!.insert(0, extra_feedback);
+    if (feedback.warning == null) {
+      feedback.warning = '';
+    }
+
     return feedback;
   }
 
-  static Feedback get_match_feedback(PasswordMatch match, bool is_sole_match) {
+  static Feedback? get_match_feedback(PasswordMatch match, bool is_sole_match) {
     String? warning;
     switch (match.pattern) {
       case 'dictionary':
         return get_dictionary_match_feedback(match, is_sole_match);
 
       case 'spatial':
+        // ignore: unused_local_variable
         String layout = match.graph!.toUpperCase();
         if (match.turns == 1) {
           warning = 'Straight rows of keys are easy to guess';
@@ -64,8 +61,9 @@ class feedback {
           warning = 'Short keyboard patterns are easy to guess';
         }
         return Feedback(
-            warning: warning,
-            suggestions: ['Use a longer keyboard pattern with more turns']);
+          warning: warning,
+          suggestions: ['Use a longer keyboard pattern with more turns'],
+        );
 
       case 'repeat':
         if (match.base_token!.length == 1) {
@@ -74,8 +72,9 @@ class feedback {
           'Repeats like "abcabcabc" are only slightly harder to guess than "abc"';
         }
         return Feedback(
-            warning: warning,
-            suggestions: ['Avoid repeated words and characters']);
+          warning: warning,
+          suggestions: ['Avoid repeated words and characters'],
+        );
 
       case 'sequence':
         return Feedback(
@@ -86,30 +85,34 @@ class feedback {
       case 'regex':
         if (match.regex_name == 'recent_year') {
           return Feedback(
-              warning: "Recent years are easy to guess",
-              suggestions: [
-                'Avoid recent years'
-                    'Avoid years that are associated with you'
-              ]);
+            warning: "Recent years are easy to guess",
+            suggestions: [
+              'Avoid recent years',
+              'Avoid years that are associated with you',
+            ],
+          );
         }
         break;
 
       case 'date':
-        return Feedback(warning: "Dates are often easy to guess", suggestions: [
-          'Avoid dates and years that are associated with you'
-        ]);
+        return Feedback(
+          warning: "Dates are often easy to guess",
+          suggestions: ['Avoid dates and years that are associated with you'],
+        );
     }
-    return default_feedback;
+    return null;
   }
 
   static Feedback get_dictionary_match_feedback(
-      PasswordMatch match, is_sole_match) {
+    PasswordMatch match,
+    is_sole_match,
+  ) {
     String? warning;
     if (match.dictionary_name == 'passwords') {
       if (is_sole_match && !match.l33t! && !match.reversed!) {
-        if (match.rank <= 10) {
+        if (match.rank! <= 10) {
           warning = 'This is a top-10 common password';
-        } else if (match.rank <= 100) {
+        } else if (match.rank! <= 100) {
           warning = 'This is a top-100 common password';
         } else {
           warning = 'This is a very common password';
@@ -121,8 +124,11 @@ class feedback {
       if (is_sole_match) {
         warning = 'A word by itself is easy to guess';
       }
-    } else if (['surnames', 'male_names', 'female_names']
-        .contains(match.dictionary_name)) {
+    } else if ([
+      'surnames',
+      'male_names',
+      'female_names',
+    ].contains(match.dictionary_name)) {
       if (is_sole_match) {
         warning = 'Names and surnames by themselves are easy to guess';
       } else {
@@ -133,25 +139,24 @@ class feedback {
     }
 
     final suggestions = <String>[];
-    final word = match.token!;
+    final word = match.token;
     if (scoring.START_UPPER.hasMatch(word)) {
       suggestions.add("Capitalization doesn't help very much");
     } else if (scoring.ALL_UPPER.hasMatch(word) && word.toLowerCase() != word) {
-      suggestions
-          .add("All-uppercase is almost as easy to guess as all-lowercase");
+      suggestions.add(
+        "All-uppercase is almost as easy to guess as all-lowercase",
+      );
     }
 
-    if (match.reversed! && match.token!.length >= 4) {
+    if (match.reversed! && match.token.length >= 4) {
       suggestions.add("Reversed words aren't much harder to guess");
     }
     if (match.l33t!) {
       suggestions.add(
-          "Predictable substitutions like '@' instead of 'a' don't help very much");
+        "Predictable substitutions like '@' instead of 'a' don't help very much",
+      );
     }
 
-    return Feedback(
-      warning: warning,
-      suggestions: suggestions,
-    );
+    return Feedback(warning: warning, suggestions: suggestions);
   }
 }

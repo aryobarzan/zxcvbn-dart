@@ -1,10 +1,14 @@
 import 'package:test/test.dart';
-import 'package:zxcvbn/src/result.dart';
 import 'package:zxcvbn/zxcvbn.dart';
 
 void main() {
   group(Zxcvbn, () {
     final zxcvbn = Zxcvbn();
+    test('<empty string>', () {
+      Result result = zxcvbn.evaluate('');
+      expect(result.score!, 0);
+      expect(result.guesses_log10, 0);
+    });
     test('zxcvbn', () {
       Result result = zxcvbn.evaluate('zxcvbn');
       expect(result.score!.round(), 0);

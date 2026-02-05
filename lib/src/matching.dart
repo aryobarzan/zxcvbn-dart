@@ -14,10 +14,8 @@ Map<String, int> build_ranked_dict(List<String> ordered_list) {
 }
 
 final RANKED_DICTIONARIES = frequency_lists.map(
-  (key, value) => MapEntry<String, Map<String, int>>(
-    key,
-    build_ranked_dict(value),
-  ),
+  (key, value) =>
+      MapEntry<String, Map<String, int>>(key, build_ranked_dict(value)),
 );
 
 final GRAPHS = {
@@ -31,20 +29,28 @@ const L33T_TABLE = {
   'a': ['4', '@'],
   'b': ['8'],
   'c': ['(', '{', '[', '<'],
+  'd': ['6', '|)'],
   'e': ['3'],
-  'g': ['6', '9'],
+  'f': ['#'],
+  'g': ['6', '9', '&'],
+  'h': ['#', '|-|'],
   'i': ['1', '!', '|'],
-  'l': ['1', '|', '7'],
-  'o': ['0'],
+  'k': ['<', '|<'],
+  'l': ['!', '1', '|', '7'],
+  'm': ['^^', 'nn', '2n', '/\\\\/\\\\'],
+  'n': ['//'],
+  'o': ['0', '()'],
+  'q': ['9'],
   's': ['\$', '5'],
   't': ['+', '7'],
-  'x': ['%'],
+  'u': ['|_|'],
+  'v': ['<', '>', '/'],
+  'w': ['^/', 'uu', 'vv', '2u', '2v', '\\\\/\\\\/'],
+  'x': ['%', '><'],
   'z': ['2'],
 };
 
-Map<String, RegExp> REGEXEN = {
-  'recent_year': RegExp(r'19\d\d|200\d|201\d'),
-};
+Map<String, RegExp> REGEXEN = {'recent_year': RegExp(r'19\d\d|200\d|201\d')};
 
 const DATE_MAX_YEAR = 2050;
 const DATE_MIN_YEAR = 1000;
@@ -72,11 +78,17 @@ const DATE_SPLITS = {
   8: [
     [2, 4], // // 11 11 1991
     [4, 6], // // 1991 11 11
-  ]
+  ],
 };
 
 class matching {
-  static empty(dynamic obj) => obj.isEmpty;
+  static bool empty(Object obj) {
+    if (obj is Iterable) return obj.isEmpty;
+    if (obj is Map) return obj.isEmpty;
+    if (obj is String) return obj.isEmpty;
+    return false;
+  }
+
   static void extend(List lst, List lst2) => lst.addAll(lst2);
 
   static translate(String string, Map<String, String> chr_map) =>
@@ -86,15 +98,16 @@ class matching {
 
   static List<PasswordMatch> sorted(List<PasswordMatch> matches) {
     // // sort on i primary, j secondary
-    matches
-        .sort((m1, m2) => (m1.i! - m2.i!) != 0 ? (m1.i! - m2.i!) : (m1.j! - m2.j!));
+    matches.sort(
+      (m1, m2) => (m1.i - m2.i) != 0 ? (m1.i - m2.i) : (m1.j - m2.j),
+    );
     return matches;
   }
 
-//  // ------------------------------------------------------------------------------
-//  // omnimatch -- combine everything ----------------------------------------------
-//  // ------------------------------------------------------------------------------
-//
+  //  // ------------------------------------------------------------------------------
+  //  // omnimatch -- combine everything ----------------------------------------------
+  //  // ------------------------------------------------------------------------------
+  //
   static omnimatch(String? password) {
     List<PasswordMatch> matches = [];
     final matchers = [
@@ -105,7 +118,7 @@ class matching {
       repeat_match,
       sequence_match,
       regex_match,
-      date_match
+      date_match,
     ];
     for (Function matcher in matchers) {
       matches = [...matches, ...matcher.call(password)];
@@ -117,8 +130,10 @@ class matching {
   // dictionary match (common passwords, english, last names, etc) ----------------
   //-------------------------------------------------------------------------------
 
-  static List<PasswordMatch> dictionary_match(String password,
-      {Map<String, Map<String, int>>? ranked_dictionaries}) {
+  static List<PasswordMatch> dictionary_match(
+    String password, {
+    Map<String, Map<String, int>>? ranked_dictionaries,
+  }) {
     ranked_dictionaries ??= RANKED_DICTIONARIES;
     // _ranked_dictionaries variable is for unit testing purposes
     final List<PasswordMatch> matches = [];
@@ -132,16 +147,17 @@ class matching {
             final rank = ranked_dict[word];
 
             matches.add(
-              PasswordMatch()
-                ..pattern = 'dictionary'
-                ..i = i
-                ..j = j
-                ..token = password.substring(i, j + 1)
-                ..matched_word = word
-                ..rank = rank
-                ..dictionary_name = dictionary_name
-                ..reversed = false
-                ..l33t = false,
+              PasswordMatch(
+                pattern: 'dictionary',
+                i: i,
+                j: j,
+                token: password.substring(i, j + 1),
+                matched_word: word,
+                rank: rank,
+                dictionary_name: dictionary_name,
+                reversed: false,
+                l33t: false,
+              ),
             );
           }
         }
@@ -156,16 +172,25 @@ class matching {
   }) {
     ranked_dictionaries ??= RANKED_DICTIONARIES;
     final reversed_password = password.split('').reversed.join('');
-    final matches = dictionary_match(reversed_password,
-        ranked_dictionaries: ranked_dictionaries);
-    for (PasswordMatch match in matches) {
-      match.token = match.token!.split('').reversed.join(''); //// reverse back
-      match.reversed = true;
-      //// map coordinates back to original string
-      int tempI = password.length - 1 - match.j!;
-      match.j = password.length - 1 - match.i!;
-      match.i = tempI;
-    }
+    var matches = dictionary_match(
+      reversed_password,
+      ranked_dictionaries: ranked_dictionaries,
+    );
+    matches = matches.map((match) {
+      final reversedToken = match.token.split('').reversed.join('');
+      final tempI = password.length - 1 - match.j;
+      return PasswordMatch(
+        pattern: match.pattern,
+        i: tempI,
+        j: password.length - 1 - match.i,
+        token: reversedToken,
+        matched_word: match.matched_word,
+        rank: match.rank,
+        dictionary_name: match.dictionary_name,
+        reversed: true,
+        l33t: match.l33t,
+      );
+    }).toList();
     return sorted(matches);
   }
 
@@ -179,15 +204,18 @@ class matching {
 
   // makes a pruned copy of l33t_table that only includes password's possible substitutions
   static Map<String, List<String>> relevant_l33t_subtable(
-      String password, Map<String, List<String>> table) {
+    String password,
+    Map<String, List<String>> table,
+  ) {
     final Map<String, bool> password_chars = {};
     for (final chr in password.split('')) {
       password_chars[chr] = true;
     }
     final Map<String, List<String>> subtable = {};
     table.forEach((letter, subs) {
-      final relevant_subs =
-          subs.where((sub) => password_chars.containsKey(sub));
+      final relevant_subs = subs.where(
+        (sub) => password_chars.containsKey(sub),
+      );
       if (relevant_subs.length > 0) {
         subtable[letter] = relevant_subs.toList();
       }
@@ -223,24 +251,6 @@ class matching {
     //
     int compare(List l1, List l2) {
       // null at the end
-      if (l1 == null) {
-        if (l2 == null) {
-          return 0;
-        }
-        return 1;
-      } else if (l2 == null) {
-        return -1;
-      }
-
-      // convert to list
-      if (l1 is! List) {
-        l1 = [l1];
-      }
-      if (l2 is! List) {
-        l2 = [l2];
-      }
-
-      // empty at the beginning
       if (l1.isEmpty) {
         if (l2.isEmpty) {
           return 0;
@@ -326,7 +336,7 @@ class matching {
           if (dup_l33t_index == -1) {
             var sub_extension = new List<List<String>>.from(sub);
             sub_extension.addAll([
-              [l33t_chr, first_key]
+              [l33t_chr, first_key],
             ]);
 
             next_subs.add(sub_extension);
@@ -361,24 +371,30 @@ class matching {
     return sub_dicts;
   }
 
-  static List<PasswordMatch> l33t_match(String password,
-      {ranked_dictionaries, l33t_table}) {
+  static List<PasswordMatch> l33t_match(
+    String password, {
+    ranked_dictionaries,
+    l33t_table,
+  }) {
     ranked_dictionaries ??= RANKED_DICTIONARIES;
     l33t_table ??= L33T_TABLE;
 
     final matches = <PasswordMatch>[];
 
-    for (final sub
-        in enumerate_l33t_subs(relevant_l33t_subtable(password, l33t_table))) {
+    for (final sub in enumerate_l33t_subs(
+      relevant_l33t_subtable(password, l33t_table),
+    )) {
       if (empty(sub)) {
         // corner case: password has no relevant subs.
         break;
       }
 
       final subbed_password = translate(password, sub);
-      for (final PasswordMatch match in dictionary_match(subbed_password,
-          ranked_dictionaries: ranked_dictionaries)) {
-        final String token = password.substring(match.i!, match.j! + 1);
+      for (final PasswordMatch match in dictionary_match(
+        subbed_password,
+        ranked_dictionaries: ranked_dictionaries,
+      )) {
+        final String token = password.substring(match.i, match.j + 1);
         if (token.toLowerCase() == match.matched_word) {
           continue; // only return the matches that contain an actual substitution
         }
@@ -391,31 +407,49 @@ class matching {
           }
         });
 
-        match.l33t = true;
-        match.token = token;
-        match.sub = match_sub;
-        match.sub_display = match_sub
+        final subDisplay = match_sub
             .map((k, v) => MapEntry(k, "${k} -> ${v}"))
             .values
             .join(', ');
-        matches.add(match);
+
+        matches.add(
+          PasswordMatch(
+            pattern: match.pattern,
+            i: match.i,
+            j: match.j,
+            token: token,
+            matched_word: match.matched_word,
+            rank: match.rank,
+            dictionary_name: match.dictionary_name,
+            reversed: match.reversed,
+            l33t: true,
+            sub: match_sub,
+            sub_display: subDisplay,
+          ),
+        );
       }
     }
 
-    return sorted(matches
-        .where((match) =>
-            // filter single-character l33t matches to reduce noise.
-            // otherwise '1' matches 'i', '4' matches 'a', both very common English words
-            // with low dictionary rank.
-            match.token!.length > 1)
-        .toList());
+    return sorted(
+      matches
+          .where(
+            (match) =>
+                // filter single-character l33t matches to reduce noise.
+                // otherwise '1' matches 'i', '4' matches 'a', both very common English words
+                // with low dictionary rank.
+                match.token.length > 1,
+          )
+          .toList(),
+    );
   }
   // ------------------------------------------------------------------------------
   // spatial match (qwerty/dvorak/keypad) -----------------------------------------
   // ------------------------------------------------------------------------------
 
-  static List<PasswordMatch> spatial_match(String password,
-      [Map<String, Map<String, List<String?>>?>? graphs]) {
+  static List<PasswordMatch> spatial_match(
+    String password, [
+    Map<String, Map<String, List<String?>>?>? graphs,
+  ]) {
     graphs ??= GRAPHS;
     final List<PasswordMatch> matches = [];
 
@@ -425,16 +459,20 @@ class matching {
     return (sorted(matches));
   }
 
-  static RegExp SHIFTED_RX =
-      RegExp(r'[~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:"ZXCVBNM<>?]');
+  static RegExp SHIFTED_RX = RegExp(
+    r'[~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:"ZXCVBNM<>?]',
+  );
 
   static List<PasswordMatch> spatial_match_helper(
-      String password, Map<String, List<String?>>? graph, graph_name) {
+    String password,
+    Map<String, List<String?>>? graph,
+    graph_name,
+  ) {
     final List<PasswordMatch> matches = [];
     int i = 0;
     while (i < password.length - 1) {
       int j = i + 1;
-      dynamic last_direction = null;
+      int? last_direction;
       int turns = 0;
 
       int shifted_count;
@@ -485,14 +523,17 @@ class matching {
         else {
           if (j - i > 2) {
             //// don't consider length 1 or 2 chains.
-            matches.add(PasswordMatch()
-              ..pattern = 'spatial'
-              ..i = i
-              ..j = j - 1
-              ..token = password.substring(i, j)
-              ..graph = graph_name
-              ..turns = turns
-              ..shifted_count = shifted_count);
+            matches.add(
+              PasswordMatch(
+                pattern: 'spatial',
+                i: i,
+                j: j - 1,
+                token: password.substring(i, j),
+                graph: graph_name,
+                turns: turns,
+                shifted_count: shifted_count,
+              ),
+            );
           }
           // ...and then start a new search for the rest of the password.
           i = j;
@@ -547,19 +588,24 @@ class matching {
 
       // recursively match and score the base string
       final base_analysis = scoring.most_guessable_match_sequence(
-          base_token!, omnimatch(base_token));
+        base_token!,
+        omnimatch(base_token),
+      );
 
       final base_matches = base_analysis.sequence;
       final base_guesses = base_analysis.guesses;
-      matches.add(PasswordMatch()
-        ..pattern = 'repeat'
-        ..i = i
-        ..j = j
-        ..token = match[0]
-        ..base_token = base_token
-        ..base_guesses = base_guesses.round()
-        ..base_matches = base_matches
-        ..repeat_count = (match[0]!.length / base_token.length).round());
+      matches.add(
+        PasswordMatch(
+          pattern: 'repeat',
+          i: i,
+          j: j,
+          token: match[0]!,
+          base_token: base_token,
+          base_guesses: base_guesses.round(),
+          base_matches: base_matches,
+          repeat_count: (match[0]!.length / base_token.length).round(),
+        ),
+      );
       lastIndex = j + 1;
     }
     return matches;
@@ -611,14 +657,17 @@ class matching {
             sequence_name = 'unicode';
             sequence_space = 26;
           }
-          result.add(PasswordMatch()
-            ..pattern = 'sequence'
-            ..i = i
-            ..j = j
-            ..token = password.substring(i, j + 1)
-            ..sequence_name = sequence_name
-            ..sequence_space = sequence_space
-            ..ascending = delta > 0);
+          result.add(
+            PasswordMatch(
+              pattern: 'sequence',
+              i: i,
+              j: j,
+              token: password.substring(i, j + 1),
+              sequence_name: sequence_name,
+              sequence_space: sequence_space,
+              ascending: delta > 0,
+            ),
+          );
         }
       }
     }
@@ -645,29 +694,26 @@ class matching {
   // regex matching ---------------------------------------------------------------
   //-------------------------------------------------------------------------------
 
-  static List<PasswordMatch> regex_match(String password,
-      [Map<String, RegExp>? _regexen]) {
+  static List<PasswordMatch> regex_match(
+    String password, [
+    Map<String, RegExp>? _regexen,
+  ]) {
     _regexen ??= REGEXEN;
     final List<PasswordMatch> matches = [];
     _regexen.forEach((name, regex) {
-      int last_index = 0;
-
-      while (last_index < password.length) {
-        final pattern = password.substring(last_index);
-        final rx_match = regex.firstMatch(pattern);
-        if (rx_match == null) {
-          break;
-        }
-        String? token = rx_match.group(0);
-        last_index = rx_match.start + rx_match.group(0)!.length - 1;
-        matches.add(PasswordMatch()
-          ..pattern = 'regex'
-          ..token = token
-          ..i = rx_match.start
-          ..j = rx_match.start + rx_match.group(0)!.length - 1
-          ..regex_name = name
-          ..regex_match = rx_match);
-      }
+      regex.allMatches(password).forEach((rx_match) {
+        String? token = rx_match[0];
+        matches.add(
+          PasswordMatch(
+            pattern: 'regex',
+            token: token!,
+            i: rx_match.start,
+            j: rx_match.start + rx_match[0]!.length - 1,
+            regex_name: name,
+            regex_match: rx_match,
+          ),
+        );
+      });
     });
     return sorted(matches);
   }
@@ -705,8 +751,9 @@ class matching {
     //  \2             // same separator
     //  ( \d{1,4} )    // day, month, year
     //  \$
-    final RegExp maybe_date_with_separator =
-        RegExp(r'^(\d{1,4})([\s/\\_.-])(\d{1,2})\2(\d{1,4})$');
+    final RegExp maybe_date_with_separator = RegExp(
+      r'^(\d{1,4})([\s/\\_.-])(\d{1,2})\2(\d{1,4})$',
+    );
 
     // dates without separators are between length 4 '1191' and 8 '11111991'
     for (int i = 0; i <= password.length - 4; i++) {
@@ -725,7 +772,7 @@ class matching {
           final dmy = map_ints_to_dmy([
             int.parse(token.substring(0, k)),
             int.parse(token.substring(k, l)),
-            int.parse(token.substring(l))
+            int.parse(token.substring(l)),
           ]);
           if (dmy != null) {
             candidates.add(dmy);
@@ -742,8 +789,8 @@ class matching {
         // (interpreting '04' as 2004)
         var best_candidate = candidates[0];
 
-        Function metric =
-            (candidate) => (candidate['year'] - scoring.REFERENCE_YEAR).abs();
+        Function metric = (candidate) =>
+            (candidate['year'] - scoring.REFERENCE_YEAR).abs();
 
         int? min_distance = metric(candidates[0]);
         for (final candidate in candidates.sublist(1)) {
@@ -753,15 +800,18 @@ class matching {
             min_distance = distance;
           }
         }
-        matches.add(PasswordMatch()
-          ..pattern = 'date'
-          ..token = token
-          ..i = i
-          ..j = j
-          ..separator = ''
-          ..year = best_candidate['year']
-          ..month = best_candidate['month']
-          ..day = best_candidate['day']);
+        matches.add(
+          PasswordMatch(
+            pattern: 'date',
+            token: token,
+            i: i,
+            j: j,
+            separator: best_candidate['separator'] ?? '',
+            year: best_candidate['year'],
+            month: best_candidate['month'],
+            day: best_candidate['day'],
+          ),
+        );
       }
     }
 
@@ -784,15 +834,18 @@ class matching {
         if (dmy == null) {
           continue;
         }
-        matches.add(PasswordMatch()
-          ..pattern = 'date'
-          ..token = token
-          ..i = i
-          ..j = j
-          ..separator = rx_match[2]
-          ..year = dmy['year']
-          ..month = dmy['month']
-          ..day = dmy['day']);
+        matches.add(
+          PasswordMatch(
+            pattern: 'date',
+            token: token,
+            i: i,
+            j: j,
+            separator: rx_match[2],
+            year: dmy['year'],
+            month: dmy['month'],
+            day: dmy['day'],
+          ),
+        );
       }
     }
 
@@ -803,19 +856,21 @@ class matching {
     // 5(!) other date matches: 15_06_04, 5_06_04, ..., even 2015 (matched as 5/1/2020)
     //
     // to reduce noise, remove date matches that are strict substrings of others
-    return sorted(matches.where((match) {
-      bool is_submatch = false;
-      for (final other_match in matches) {
-        if (match == other_match) {
-          continue;
+    return sorted(
+      matches.where((match) {
+        bool is_submatch = false;
+        for (final other_match in matches) {
+          if (match == other_match) {
+            continue;
+          }
+          if (other_match.i <= match.i && other_match.j >= match.j) {
+            is_submatch = true;
+            break;
+          }
         }
-        if (other_match.i! <= match.i! && other_match.j! >= match.j!) {
-          is_submatch = true;
-          break;
-        }
-      }
-      return !is_submatch;
-    }).toList());
+        return !is_submatch;
+      }).toList(),
+    );
   }
 
   static Map<String, int?>? map_ints_to_dmy(List<int> ints) {
@@ -854,7 +909,7 @@ class matching {
     // first look for a four digit year: yyyy + daymonth or daymonth + yyyy
     final possible_year_splits = [
       [ints[2], ints.sublist(0, 1 + 1)], // year last
-      [ints[0], ints.sublist(0, 2 + 1)] // year first
+      [ints[0], ints.sublist(0, 2 + 1)], // year first
     ];
 
     for (final split in possible_year_splits) {
@@ -863,11 +918,7 @@ class matching {
       if (DATE_MIN_YEAR <= y && y <= DATE_MAX_YEAR) {
         final dm = map_ints_to_dm(rest as List<int>);
         if (dm != null) {
-          return {
-            'year': y,
-            'month': dm['month'],
-            'day': dm['day'],
-          };
+          return {'year': y, 'month': dm['month'], 'day': dm['day']};
         } else
           // for a candidate that includes a four-digit year,
           // when the remaining ints don't match to a day and month,
@@ -884,15 +935,12 @@ class matching {
       final dm = map_ints_to_dm(rest as List<int>);
       if (dm != null) {
         y = two_to_four_digit_year(y);
-        return {
-          'year': y,
-          'month': dm['month'],
-          'day': dm['day'],
-        };
+        return {'year': y, 'month': dm['month'], 'day': dm['day']};
       } else {
         return null;
       }
     }
+    return null;
   }
 
   static Map<String, int>? map_ints_to_dm(List<int> ints) {
