@@ -38,7 +38,12 @@ class feedback {
     final extra_feedback =
         'Add another word or two. Uncommon words are better.';
 
-    feedback!.suggestions!.insert(0, extra_feedback);
+    // Handle case where get_match_feedback returns null (e.g., for bruteforce patterns)
+    if (feedback == null) {
+      return Feedback(warning: '', suggestions: [extra_feedback]);
+    }
+
+    feedback.suggestions!.insert(0, extra_feedback);
     if (feedback.warning == null) {
       feedback.warning = '';
     }

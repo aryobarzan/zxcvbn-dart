@@ -27,6 +27,44 @@ void main() {
 
 The `Result` object includes lots more information about the password strength. This project has the same feature set as the Official Zxcvbn, so check out their [documentation](https://github.com/dropbox/zxcvbn#usage).
 
+### Levenshtein Distance Matching
+
+This library includes Levenshtein distance matching, a feature from the modern TypeScript rewrite [zxcvbn-ts](https://github.com/zxcvbn-ts/zxcvbn). This feature detects passwords that are similar to common dictionary words but contain typos.
+
+For example, "alaphant" (a typo of "elephant") or "passwrod" (a typo of "password") will be detected as weak passwords even though they're not exact dictionary matches.
+
+To enable Levenshtein distance matching:
+
+```dart
+import 'package:zxcvbn/zxcvbn.dart';
+import 'package:zxcvbn/src/matching.dart' as matching;
+
+void main() {
+  // Enable Levenshtein distance matching
+  matching.USE_LEVENSHTEIN_DISTANCE = true;
+  matching.LEVENSHTEIN_THRESHOLD = 2; // Maximum edit distance (default: 2)
+
+  final zxcvbn = Zxcvbn();
+  final result = zxcvbn.evaluate('alaphant'); // Typo of "elephant"
+  
+  // Check if a match used Levenshtein distance
+  for (final match in result.sequence) {
+    if (match.levenshtein_distance != null) {
+      print('Matched "${match.levenshtein_distance_entry}" with distance ${match.levenshtein_distance}');
+    }
+  }
+}
+```
+
+**Configuration Options:**
+- `USE_LEVENSHTEIN_DISTANCE`: Set to `true` to enable fuzzy matching (default: `false`)
+- `LEVENSHTEIN_THRESHOLD`: Maximum number of character edits allowed (default: `2`)
+
+**Notes:**
+- Levenshtein matching only applies to the full password, not substrings, to avoid performance issues and false positives
+- For short passwords, the threshold is automatically adjusted to `max(ceil(password.length / 4), 1)` to provide reasonable matching
+- This feature slightly increases computation time but significantly improves password strength detection
+
 ## Development
 
 This project was created as a fork of DropBox's CoffeeScript Zxcvbn library for use in Dart. Note there is already an existing Dart implementation, [Xcvbnm](https://pub.dev/packages/xcvbnm). However, we found that Xcvbnm returned vastly different results compared to Zxcvbn official. Xcvbnm's readme also makes it clear the library is incomplete:

@@ -1,5 +1,6 @@
 import 'adjacency_graphs.dart';
 import 'frequency_lists.dart';
+import 'levenshtein.dart';
 import 'match.dart';
 import 'scoring.dart';
 
@@ -49,6 +50,14 @@ const L33T_TABLE = {
   'x': ['%', '><'],
   'z': ['2'],
 };
+
+/// Configuration for Levenshtein distance matching
+/// Set to true to enable fuzzy matching of dictionary words with typos
+bool USE_LEVENSHTEIN_DISTANCE = false;
+
+/// Maximum number of character differences allowed for Levenshtein matching
+/// For example, with threshold=2, "elephant" can match "elepant" (1 deletion) or "elephent" (1 substitution)
+int LEVENSHTEIN_THRESHOLD = 2;
 
 Map<String, RegExp> REGEXEN = {'recent_year': RegExp(r'19\d\d|200\d|201\d')};
 
@@ -133,6 +142,7 @@ class matching {
   static List<PasswordMatch> dictionary_match(
     String password, {
     Map<String, Map<String, int>>? ranked_dictionaries,
+    bool useLevenshtein = true,
   }) {
     ranked_dictionaries ??= RANKED_DICTIONARIES;
     // _ranked_dictionaries variable is for unit testing purposes
@@ -142,9 +152,32 @@ class matching {
     ranked_dictionaries.forEach((dictionary_name, ranked_dict) {
       for (int i = 0; i < len; i++) {
         for (int j = i; j < len; j++) {
-          if (ranked_dict.containsKey(password_lower.substring(i, j + 1))) {
-            final word = password_lower.substring(i, j + 1);
-            final rank = ranked_dict[word];
+          final word = password_lower.substring(i, j + 1);
+          final isInDictionary = ranked_dict.containsKey(word);
+
+          LevenshteinResult? levenshteinResult;
+
+          // Only use Levenshtein distance on full password to minimize performance drop
+          // and because otherwise there would be too many false positives
+          final isFullPassword = i == 0 && j == len - 1;
+          if (USE_LEVENSHTEIN_DISTANCE &&
+              isFullPassword &&
+              !isInDictionary &&
+              useLevenshtein) {
+            levenshteinResult = findLevenshteinDistance(
+              word,
+              ranked_dict,
+              LEVENSHTEIN_THRESHOLD,
+            );
+          }
+
+          final isLevenshteinMatch = levenshteinResult != null;
+
+          if (isInDictionary || isLevenshteinMatch) {
+            final usedRankPassword = isLevenshteinMatch
+                ? levenshteinResult.levenshteinDistanceEntry
+                : word;
+            final rank = ranked_dict[usedRankPassword];
 
             matches.add(
               PasswordMatch(
@@ -157,6 +190,9 @@ class matching {
                 dictionary_name: dictionary_name,
                 reversed: false,
                 l33t: false,
+                levenshtein_distance: levenshteinResult?.levenshteinDistance,
+                levenshtein_distance_entry:
+                    levenshteinResult?.levenshteinDistanceEntry,
               ),
             );
           }
@@ -189,6 +225,8 @@ class matching {
         dictionary_name: match.dictionary_name,
         reversed: true,
         l33t: match.l33t,
+        levenshtein_distance: match.levenshtein_distance,
+        levenshtein_distance_entry: match.levenshtein_distance_entry,
       );
     }).toList();
     return sorted(matches);
@@ -425,6 +463,8 @@ class matching {
             l33t: true,
             sub: match_sub,
             sub_display: subDisplay,
+            levenshtein_distance: match.levenshtein_distance,
+            levenshtein_distance_entry: match.levenshtein_distance_entry,
           ),
         );
       }

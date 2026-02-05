@@ -36,6 +36,8 @@ class PasswordMatch {
   String? sub_display;
   String? sequence_name;
   int? sequence_space;
+  int? levenshtein_distance;
+  String? levenshtein_distance_entry;
 
   PasswordMatch({
     required this.pattern,
@@ -70,6 +72,8 @@ class PasswordMatch {
     this.sub_display,
     this.sequence_name,
     this.sequence_space,
+    this.levenshtein_distance,
+    this.levenshtein_distance_entry,
   });
 
   /// The javascript version uses a mix of array index access and dot notation
@@ -141,6 +145,10 @@ class PasswordMatch {
         return sequence_name;
       case 'sequence_space':
         return sequence_space;
+      case 'levenshtein_distance':
+        return levenshtein_distance;
+      case 'levenshtein_distance_entry':
+        return levenshtein_distance_entry;
     }
   }
 }
